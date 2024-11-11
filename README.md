@@ -14,5 +14,5 @@ Run
 cargo chip8rs --rom ./roms/<name> [--scale <u32>]
 
 # Example
-cargo chip8rs --rom ./roms/TETRIS --scale 10
+cargo chip8rs --rom ./roms/INVADERS
 ```
