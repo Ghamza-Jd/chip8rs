@@ -11,10 +11,8 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
-use std::borrow::Borrow;
 use std::fs::File;
 use std::io::Read;
-use std::sync::{Arc, Mutex};
 
 const TICKS_PER_FRAME: usize = 10;
 
@@ -31,18 +29,25 @@ fn main() -> anyhow::Result<()> {
     let width = (SPECS.screen_w as u32) * params.scale;
     let height = (SPECS.screen_h as u32) * params.scale;
 
-    let window = video_subsystem
+    let Ok(window) = video_subsystem
         .window("Chip-8 Emulator", width, height)
         .position_centered()
         .opengl()
         .build()
-        .unwrap();
+    else {
+        bail!("Failed to build window");
+    };
 
-    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
+    let Ok(mut canvas) = window.into_canvas().present_vsync().build() else {
+        bail!("Failed to build the renderer");
+    };
+
     canvas.clear();
     canvas.present();
 
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    let Ok(mut event_pump) = sdl_context.event_pump() else {
+        bail!("Failed to obtain the SDL event pump");
+    };
 
     let mut chip8 = Emu::new();
 
