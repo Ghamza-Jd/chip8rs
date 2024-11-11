@@ -29,18 +29,13 @@ fn main() -> anyhow::Result<()> {
     let width = (SPECS.screen_w as u32) * params.scale;
     let height = (SPECS.screen_h as u32) * params.scale;
 
-    let Ok(window) = video_subsystem
+    let window = video_subsystem
         .window("Chip-8 Emulator", width, height)
         .position_centered()
         .opengl()
-        .build()
-    else {
-        bail!("Failed to build window");
-    };
+        .build()?;
 
-    let Ok(mut canvas) = window.into_canvas().present_vsync().build() else {
-        bail!("Failed to build the renderer");
-    };
+    let mut canvas = window.into_canvas().present_vsync().build()?;
 
     canvas.clear();
     canvas.present();
