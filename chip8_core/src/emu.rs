@@ -71,6 +71,20 @@ impl Emu {
         }
     }
 
+    pub fn get_display(&self) -> &[bool] {
+        &self.screen
+    }
+
+    pub fn keypress(&mut self, idx: usize, pressed: bool) {
+        self.keys[idx] = pressed;
+    }
+
+    pub fn load(&mut self, data: &[u8]) {
+        let start = SPECS.start_addr as usize;
+        let end = (SPECS.start_addr as usize) + data.len();
+        self.ram[start..end].copy_from_slice(data);
+    }
+
     fn fetch(&mut self) -> u16 {
         let high_byte = self.ram[self.pc as usize] as u16;
         let low_byte = self.ram[(self.pc + 1) as usize] as u16;
