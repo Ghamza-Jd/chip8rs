@@ -1,3 +1,5 @@
+use chip8_core::emu::Emu;
+
 fn main() {
-    println!("Hello, world!");
+    _ = Emu::new();
 }
