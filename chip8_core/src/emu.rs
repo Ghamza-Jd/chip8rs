@@ -87,6 +87,11 @@ impl Emu {
         let lbhn = (op & 0x00F0) >> 4;
         let lbln = op & 0x000F;
 
+        let x = hbln as usize;
+        let y = lbhn as usize;
+        let nn = (op & 0xFF) as u8;
+        let nnn = op & 0xFFF;
+
         match (hbhn, hbln, lbhn, lbln) {
             /* Noop */
             (0, 0, 0, 0) => return,
@@ -99,79 +104,57 @@ impl Emu {
             }
             /* JMP nnn */
             (1, _, _, _) => {
-                let nnn = op & 0xFFF;
                 self.pc = nnn;
             }
             /* CALL nnn */
             (2, _, _, _) => {
-                let nnn = op & 0xFFF;
                 self.push(self.pc);
                 self.pc = nnn;
             }
             /* SKIP vx == nn */
             (3, _, _, _) => {
-                let x = hbln as usize;
-                let nn = (op & 0xFF) as u8;
                 if self.v_reg[x] == nn {
                     self.pc += 2;
                 }
             }
             /* SKIP vx != nn */
             (4, _, _, _) => {
-                let x = hbln as usize;
-                let nn = (op & 0xFF) as u8;
                 if self.v_reg[x] != nn {
                     self.pc += 2;
                 }
             }
             /* SKIP vx == vy */
             (5, _, _, 0) => {
-                let x = hbln as usize;
-                let y = lbhn as usize;
                 if self.v_reg[x] == self.v_reg[y] {
                     self.pc += 2;
                 }
             }
             /* vx == nn */
             (6, _, _, _) => {
-                let x = hbln as usize;
-                let nn = (op & 0xFF) as u8;
                 self.v_reg[x] = nn;
             }
             /* vx += nn */
             (7, _, _, _) => {
-                let x = hbln as usize;
-                let nn = (op & 0xFF) as u8;
                 self.v_reg[x] = self.v_reg[x].wrapping_add(nn);
             }
             /* vx = vy */
             (8, _, _, 0) => {
-                let x = hbln as usize;
-                let y = lbhn as usize;
                 self.v_reg[x] = self.v_reg[y];
             }
             /* vx |= vy */
             (8, _, _, 1) => {
-                let x = hbln as usize;
-                let y = lbhn as usize;
                 self.v_reg[x] |= self.v_reg[y];
             }
             /* vx &= vy */
             (8, _, _, 2) => {
-                let x = hbln as usize;
-                let y = lbhn as usize;
                 self.v_reg[x] &= self.v_reg[y];
             }
             /* vx ^= vy */
             (8, _, _, 3) => {
-                let x = hbln as usize;
-                let y = lbhn as usize;
                 self.v_reg[x] ^= self.v_reg[y];
             }
             /* vx += vy */
             (8, _, _, 4) => {
-                let x = hbln as usize;
-                let y = lbhn as usize;
                 let (new_vx, has_carry) = self.v_reg[x].overflowing_add(self.v_reg[y]);
                 let new_vf = if has_carry { 1 } else { 0 };
                 self.v_reg[x] = new_vx;
@@ -179,8 +162,6 @@ impl Emu {
             }
             /* vx -= vy */
             (8, _, _, 5) => {
-                let x = hbln as usize;
-                let y = lbhn as usize;
                 let (new_vx, has_borrow) = self.v_reg[x].overflowing_sub(self.v_reg[y]);
                 let new_vf = if has_borrow { 0 } else { 1 };
                 self.v_reg[x] = new_vx;
@@ -188,15 +169,12 @@ impl Emu {
             }
             /* vx >>= 1 */
             (8, _, _, 6) => {
-                let x = hbln as usize;
                 let lsb = self.v_reg[x] & 1;
                 self.v_reg[x] >>= 1;
                 self.v_reg[0xF] = lsb;
             }
             /* vx = vy - vx */
             (8, _, _, 7) => {
-                let x = hbln as usize;
-                let y = lbhn as usize;
                 let (new_vx, has_borrow) = self.v_reg[y].overflowing_sub(self.v_reg[x]);
                 let new_vf = if has_borrow { 0 } else { 1 };
                 self.v_reg[x] = new_vx;
@@ -204,10 +182,27 @@ impl Emu {
             }
             /* vx <<= 1 */
             (8, _, _, 0xE) => {
-                let x = hbln as usize;
                 let msb = (self.v_reg[x] >> 7) & 1;
                 self.v_reg[x] <<= 1;
                 self.v_reg[0xF] = msb;
+            }
+            /* vx != vy */
+            (9, _, _, 0) => {
+                if self.v_reg[x] != self.v_reg[y] {
+                    self.pc += 2;
+                }
+            }
+            /* I = nnn */
+            (0xA, _, _, _) => {
+                self.i_reg = nnn;
+            }
+            /* JMP v0 + nnn */
+            (0xB, _, _, _) => {
+                self.pc = (self.v_reg[0] as u16) + nnn;
+            }
+            /* vx = rand() & nn */
+            (0xC, _, _, _) => {
+                self.v_reg[x] = rand::random::<u8>() & nn;
             }
             (_, _, _, _) => unimplemented!("Unimplemented opcode: {op}"),
         }
