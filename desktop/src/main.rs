@@ -51,10 +51,6 @@ fn main() -> anyhow::Result<()> {
     rom.read_to_end(&mut buffer)?;
     chip8.load(&buffer);
 
-    let k = Arc::new(Mutex::new(String::from("Hello")));
-    let guard = k.lock().unwrap();
-    guard.borrow();
-
     'main_loop: loop {
         for event in event_pump.poll_iter() {
             match event {
