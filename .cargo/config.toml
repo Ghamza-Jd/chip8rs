@@ -1,0 +1,2 @@
+[alias]
+chip8emu = "run -r --"
