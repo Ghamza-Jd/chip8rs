@@ -55,8 +55,7 @@ impl Emu {
 
     pub fn tick(&mut self) {
         let op = self.fetch();
-        // decode
-        // exec
+        self.exec(op);
     }
 
     pub fn tick_timer(&mut self) {
@@ -78,6 +77,140 @@ impl Emu {
         let op = (high_byte << 8) | low_byte;
         self.pc += 2;
         op
+    }
+
+    fn exec(&mut self, op: u16) {
+        // h -> high, l -> low, b -> byte
+        // e.g: hbln -> high byte low nibble
+        let hbhn = (op & 0xF000) >> 12;
+        let hbln = (op & 0x0F00) >> 8;
+        let lbhn = (op & 0x00F0) >> 4;
+        let lbln = op & 0x000F;
+
+        match (hbhn, hbln, lbhn, lbln) {
+            /* Noop */
+            (0, 0, 0, 0) => return,
+            /* CLS */
+            (0, 0, 0xE, 0) => self.screen = [false; SPECS.screen_w * SPECS.screen_h],
+            /* RET */
+            (0, 0, 0xE, 0xE) => {
+                let ret_addr = self.pop();
+                self.pc = ret_addr;
+            }
+            /* JMP nnn */
+            (1, _, _, _) => {
+                let nnn = op & 0xFFF;
+                self.pc = nnn;
+            }
+            /* CALL nnn */
+            (2, _, _, _) => {
+                let nnn = op & 0xFFF;
+                self.push(self.pc);
+                self.pc = nnn;
+            }
+            /* SKIP vx == nn */
+            (3, _, _, _) => {
+                let x = hbln as usize;
+                let nn = (op & 0xFF) as u8;
+                if self.v_reg[x] == nn {
+                    self.pc += 2;
+                }
+            }
+            /* SKIP vx != nn */
+            (4, _, _, _) => {
+                let x = hbln as usize;
+                let nn = (op & 0xFF) as u8;
+                if self.v_reg[x] != nn {
+                    self.pc += 2;
+                }
+            }
+            /* SKIP vx == vy */
+            (5, _, _, 0) => {
+                let x = hbln as usize;
+                let y = lbhn as usize;
+                if self.v_reg[x] == self.v_reg[y] {
+                    self.pc += 2;
+                }
+            }
+            /* vx == nn */
+            (6, _, _, _) => {
+                let x = hbln as usize;
+                let nn = (op & 0xFF) as u8;
+                self.v_reg[x] = nn;
+            }
+            /* vx += nn */
+            (7, _, _, _) => {
+                let x = hbln as usize;
+                let nn = (op & 0xFF) as u8;
+                self.v_reg[x] = self.v_reg[x].wrapping_add(nn);
+            }
+            /* vx = vy */
+            (8, _, _, 0) => {
+                let x = hbln as usize;
+                let y = lbhn as usize;
+                self.v_reg[x] = self.v_reg[y];
+            }
+            /* vx |= vy */
+            (8, _, _, 1) => {
+                let x = hbln as usize;
+                let y = lbhn as usize;
+                self.v_reg[x] |= self.v_reg[y];
+            }
+            /* vx &= vy */
+            (8, _, _, 2) => {
+                let x = hbln as usize;
+                let y = lbhn as usize;
+                self.v_reg[x] &= self.v_reg[y];
+            }
+            /* vx ^= vy */
+            (8, _, _, 3) => {
+                let x = hbln as usize;
+                let y = lbhn as usize;
+                self.v_reg[x] ^= self.v_reg[y];
+            }
+            /* vx += vy */
+            (8, _, _, 4) => {
+                let x = hbln as usize;
+                let y = lbhn as usize;
+                let (new_vx, has_carry) = self.v_reg[x].overflowing_add(self.v_reg[y]);
+                let new_vf = if has_carry { 1 } else { 0 };
+                self.v_reg[x] = new_vx;
+                self.v_reg[0xF] = new_vf;
+            }
+            /* vx -= vy */
+            (8, _, _, 5) => {
+                let x = hbln as usize;
+                let y = lbhn as usize;
+                let (new_vx, has_borrow) = self.v_reg[x].overflowing_sub(self.v_reg[y]);
+                let new_vf = if has_borrow { 0 } else { 1 };
+                self.v_reg[x] = new_vx;
+                self.v_reg[0xF] = new_vf;
+            }
+            /* vx >>= 1 */
+            (8, _, _, 6) => {
+                let x = hbln as usize;
+                let lsb = self.v_reg[x] & 1;
+                self.v_reg[x] >>= 1;
+                self.v_reg[0xF] = lsb;
+            }
+            /* vx = vy - vx */
+            (8, _, _, 7) => {
+                let x = hbln as usize;
+                let y = lbhn as usize;
+                let (new_vx, has_borrow) = self.v_reg[y].overflowing_sub(self.v_reg[x]);
+                let new_vf = if has_borrow { 0 } else { 1 };
+                self.v_reg[x] = new_vx;
+                self.v_reg[0xF] = new_vf;
+            }
+            /* vx <<= 1 */
+            (8, _, _, 0xE) => {
+                let x = hbln as usize;
+                let msb = (self.v_reg[x] >> 7) & 1;
+                self.v_reg[x] <<= 1;
+                self.v_reg[0xF] = msb;
+            }
+            (_, _, _, _) => unimplemented!("Unimplemented opcode: {op}"),
+        }
     }
 
     fn push(&mut self, val: u16) {
