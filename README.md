@@ -11,8 +11,8 @@ Along side having Rust to compile the emulator, SDL2 is needed to dynamically li
 Run
 
 ```
-cargo chip8emu --rom ./roms/<name> [--scale <u32>]
+cargo chip8rs --rom ./roms/<name> [--scale <u32>]
 
 # Example
-cargo chip8emu --rom ./roms/TETRIS --scale 10
+cargo chip8rs --rom ./roms/TETRIS --scale 10
 ```
